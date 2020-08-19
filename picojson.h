@@ -41,6 +41,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <sstream>
 
 // for isnan/isinf
 #if __cplusplus >= 201103L
@@ -154,22 +155,91 @@ protected:
   _storage u_;
 
 public:
+// --------------------------
+// --------------------------
+// -- stephomi
+// --------------------------
+// --------------------------
+#define PICOJSON_EXPLICIT // explicit
+bool is_null() const { return type_ == null_type; }
+bool is_boolean() const { return type_ == boolean_type; }
+bool is_number() const { return type_ == number_type; }
+bool is_object() const { return type_ == object_type; }
+bool is_array() const { return type_ == array_type; }
+bool is_string() const { return type_ == string_type; }
+bool count(const std::string &key) const { return contains(key); }
+object::iterator begin() { return is_object() ? u_.object_->begin() : object::iterator(); }
+object::iterator end() { return is_object() ? u_.object_->end() : object::iterator(); }
+// user conversion
+template <typename T> operator T() const;
+// accesss
+value& operator[](const char *s) { return (operator[])(std::string(s)); }
+value& operator[](const std::string &s);
+value& operator[](array::size_type index);
+const value& operator[](const char *s) const { return (operator[])(std::string(s)); }
+const value& operator[](const std::string &s) const;
+const value& operator[](array::size_type index) const;
+// equal
+friend bool operator==(const value &lhs, const value &rhs) noexcept;
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator==(const value &lhs, const T &rhs) noexcept { return lhs == value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator==(const T &lhs, const value &rhs) noexcept { return value(lhs) == rhs; }
+// not equal
+friend bool operator!=(const value &lhs, const value &rhs) noexcept { return !(lhs == rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator!=(const value &lhs, const T &rhs) noexcept { return lhs != value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator!=(const T &lhs, const value &rhs) noexcept { return value(lhs) != rhs; }
+// <
+friend bool operator<(const value &lhs, const value &rhs) noexcept;
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator<(const value &lhs, const T &rhs) noexcept { return lhs < value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator<(const T &lhs, const value &rhs) noexcept { return value(lhs) < rhs; }
+// >
+friend bool operator>(const value &lhs, const value &rhs) noexcept;
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator>(const value &lhs, const T &rhs) noexcept { return lhs > value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator>(const T &lhs, const value &rhs) noexcept { return value(lhs) > rhs; }
+// <=
+friend bool operator<=(const value &lhs, const value &rhs) noexcept;
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator<=(const value &lhs, const T &rhs) noexcept { return lhs <= value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator<=(const T &lhs, const value &rhs) noexcept { return value(lhs) <= rhs; }
+// >=
+friend bool operator>=(const value &lhs, const value &rhs) noexcept;
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator>=(const value &lhs, const T &rhs) noexcept { return lhs >= value(rhs); }
+template <typename T, std::enable_if_t<std::is_scalar_v<T>, bool> = true>
+friend bool operator>=(const T &lhs, const value &rhs) noexcept { return value(lhs) >= rhs; }
+// ctor
+value(const std::initializer_list<value> &list) : type_(array_type), u_() {  u_.array_ = new array(list); }
+value(int a) : value(double(a)) {}
+// func
+std::string dump(int dummy = 4) const;
+static value parse(const std::string &str);
+size_t size() const;
+bool empty() const;
+
   value();
   value(int type, bool);
-  explicit value(bool b);
+  PICOJSON_EXPLICIT value(bool b);
 #ifdef PICOJSON_USE_INT64
-  explicit value(int64_t i);
+  PICOJSON_EXPLICIT value(int64_t i);
 #endif
-  explicit value(double n);
-  explicit value(const std::string &s);
-  explicit value(const array &a);
-  explicit value(const object &o);
+  PICOJSON_EXPLICIT value(double n);
+  PICOJSON_EXPLICIT value(const std::string &s);
+  PICOJSON_EXPLICIT value(const array &a);
+  PICOJSON_EXPLICIT value(const object &o);
 #if PICOJSON_USE_RVALUE_REFERENCE
-  explicit value(std::string &&s);
-  explicit value(array &&a);
-  explicit value(object &&o);
+  PICOJSON_EXPLICIT value(std::string &&s);
+  PICOJSON_EXPLICIT value(array &&a);
+  PICOJSON_EXPLICIT value(object &&o);
 #endif
-  explicit value(const char *s);
+  PICOJSON_EXPLICIT value(const char *s);
   value(const char *s, size_t len);
   ~value();
   value(const value &x);
@@ -1122,7 +1192,7 @@ inline const std::string &get_last_error() {
   return last_error_t<bool>::s;
 }
 
-inline bool operator==(const value &x, const value &y) {
+inline bool operator==(const value &x, const value &y) noexcept {
   if (x.is<null>())
     return y.is<null>();
 #define PICOJSON_CMP(type)                                                                                                         \
@@ -1141,9 +1211,85 @@ inline bool operator==(const value &x, const value &y) {
   return false;
 }
 
-inline bool operator!=(const value &x, const value &y) {
-  return !(x == y);
+inline bool operator<(const value &x, const value &y) noexcept {
+    return x.is<double>() && y.is<double>() && x.get<double>() < y.get<double>();
 }
+
+inline bool operator>(const value &x, const value &y) noexcept {
+    return x.is<double>() && y.is<double>() && x.get<double>() > y.get<double>();
+}
+
+inline bool operator<=(const value &x, const value &y) noexcept {
+    return x.is<double>() && y.is<double>() && x.get<double>() <= y.get<double>();
+}
+
+inline bool operator>=(const value &x, const value &y) noexcept {
+    return x.is<double>() && y.is<double>() && x.get<double>() >= y.get<double>();
+}
+
+// --------------------------
+// --------------------------
+// -- stephomi
+// --------------------------
+// --------------------------
+inline value& value::operator[](const std::string &s) {
+  PICOJSON_ASSERT(type_ == null_type || type_ == object_type);
+  if (type_ == null_type) set<object>(object());
+  return get<object>()[s];
+}
+inline const value& value::operator[](const std::string &s) const {
+  PICOJSON_ASSERT(type_ == null_type || type_ == object_type);
+  static value s_null;
+  if (type_ == null_type) return s_null;
+  return get(s);
+}
+inline value& value::operator[](array::size_type index) {
+  PICOJSON_ASSERT(type_ == null_type || type_ == array_type);
+  if (type_ == null_type) set<array>(array(index + 1));
+  if (get<array>().size() <= index) get<array>().resize(index + 1);
+  return get<array>()[index];
+}
+inline const value& value::operator[](array::size_type index) const {
+  PICOJSON_ASSERT(type_ == null_type || type_ == array_type);
+  static value s_null;
+  if (type_ == null_type) return s_null;
+  if (get<array>().size() <= index) return s_null;
+  return get(index);
+}
+template <> inline value::operator uint8_t() const { return get<double>(); }
+template <> inline value::operator uint16_t() const { return get<double>(); }
+template <> inline value::operator uint32_t() const { return get<double>(); }
+template <> inline value::operator int8_t() const { return get<double>(); }
+template <> inline value::operator int16_t() const { return get<double>(); }
+template <> inline value::operator int32_t() const { return get<double>(); }
+template <> inline value::operator double() const { return get<double>(); }
+template <> inline value::operator float() const { return get<double>(); }
+template <> inline value::operator bool() const { return get<bool>(); }
+template <> inline value::operator std::string() const { return get<std::string>(); }
+inline value value::parse(const std::string &str) {
+    value val;
+    picojson::parse(val, str);
+    return val;
+}
+inline std::string value::dump(int dummy) const {
+    std::ostringstream stream;
+    stream << serialize(true);
+    return stream.str();
+}
+
+inline size_t value::size() const {
+    if (is_array()) return u_.array_->size();
+    if (is_object()) return u_.object_->size();
+    if (is_null()) return 0;
+    return 1;
+}
+
+inline bool value::empty() const {
+    if (is_array()) return u_.array_->empty();
+    if (is_object()) return u_.object_->empty();
+    return is_null();
+}
+
 }
 
 #if !PICOJSON_USE_RVALUE_REFERENCE
